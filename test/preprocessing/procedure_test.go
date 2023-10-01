@@ -1,6 +1,7 @@
 package preprocessing_test
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/lietoast/external-sort/preprocessing"
@@ -8,15 +9,21 @@ import (
 )
 
 func TestPreprocessingProcedure(t *testing.T) {
-	err := preprocessing.PreprocessingProcedure(
-		"./kvs",
-		1024,
-		16,
-		preprocessing.NewLocalFileReader(),
-		ds.KVConverter{},
-		preprocessing.READ_LINE,
-	)
-	if err != nil {
-		t.Errorf("procedure failure: %s", err.Error())
-	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := preprocessing.PreprocessingProcedure(
+			"./kvs",
+			1024,
+			16,
+			preprocessing.NewLocalFileReader(),
+			ds.KVConverter{},
+			preprocessing.READ_LINE,
+		)
+		if err != nil {
+			t.Errorf("procedure failure: %s", err.Error())
+		}
+	}()
+	wg.Wait()
 }
