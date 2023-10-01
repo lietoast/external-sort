@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"sync"
 )
 
 // 从文件中读取指定类型的数据
@@ -19,7 +20,11 @@ type FReader interface {
 }
 
 // 普通本地文件读取器
-type LocalFileReader struct{}
+type LocalFileReader struct {
+	stream    *os.File
+	reader    *bufio.Reader
+	readerMtx *sync.Mutex
+}
 
 func (lfr *LocalFileReader) Fread(stream *os.File, msize uint64, nmem uint64, cvt Converter) ([]FileRecord, uint64) {
 	buf := make([]byte, msize)
@@ -42,7 +47,7 @@ func (lfr *LocalFileReader) Fread(stream *os.File, msize uint64, nmem uint64, cv
 }
 
 func (lfr *LocalFileReader) ReadLines(stream *os.File, lineNum uint64, cvt Converter) ([]FileRecord, uint64) {
-	reader := bufio.NewReader(stream)
+	reader := lfr.GetReader(stream)
 	res := make([]FileRecord, 0)
 
 	for i := uint64(0); i < lineNum; i++ {
@@ -59,4 +64,24 @@ func (lfr *LocalFileReader) ReadLines(stream *os.File, lineNum uint64, cvt Conve
 	}
 
 	return res, lineNum
+}
+
+func (lfr *LocalFileReader) GetReader(stream *os.File) *bufio.Reader {
+	if lfr.stream == nil || lfr.stream != stream {
+		lfr.readerMtx.Lock()
+		if lfr.stream == nil || lfr.stream != stream {
+			lfr.stream = stream
+			lfr.reader = bufio.NewReader(stream)
+		}
+		lfr.readerMtx.Unlock()
+	}
+	return lfr.reader
+}
+
+func NewLocalFileReader() *LocalFileReader {
+	reader := new(LocalFileReader)
+	reader.stream = nil
+	reader.reader = nil
+	reader.readerMtx = new(sync.Mutex)
+	return reader
 }

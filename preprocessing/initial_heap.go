@@ -52,20 +52,37 @@ type ReplacementSelectionSorter struct {
 	currentRunLength *os.File     // 当前游程
 	newHeap          *FRecordHeap // 新堆
 	adjustHeap       *sync.Once   // 调整新堆的操作只进行一次
-	curHeapMtx       sync.Mutex   // 锁住当前堆
+	curHeapMtx       sync.Mutex   // 锁住当前堆(其实主要是锁住当前游程)
 	newHeapMtx       sync.Mutex   // 锁住新堆
 }
 
 // 建立初始堆
-func (rss *ReplacementSelectionSorter) BuildInitialHeap(N uint64, records []FileRecord) {
+func (rss *ReplacementSelectionSorter) BuildInitialHeap(N uint64, records []FileRecord) error {
 	rss.maximumRecordNum = N
 
 	h := FRecordHeap(records)
 	heap.Init(&h) // 建立初始堆
 	rss.currentHeap = &h
 
-	fp, _ := os.CreateTemp(RunLengthDir, "esort_*.rl")
+	fp, err := os.CreateTemp(RunLengthDir, "esort_*.rl")
 	rss.currentRunLength = fp
+
+	return err
+}
+
+func NewReplacementSelectionSorter(N uint64, records []FileRecord) (*ReplacementSelectionSorter, error) {
+	rss := new(ReplacementSelectionSorter)
+
+	err := rss.BuildInitialHeap(N, records)
+	if err != nil {
+		return nil, err
+	}
+
+	rss.newHeap = nil
+	rss.curHeapMtx = sync.Mutex{}
+	rss.newHeapMtx = sync.Mutex{}
+
+	return rss, nil
 }
 
 // 输出堆顶元素, 并且补充新的元素
@@ -96,7 +113,6 @@ func (rss *ReplacementSelectionSorter) Output(outputCh chan string, newRecord Fi
 			rss.adjustHeap.Do(func() {
 				heap.Init(rss.newHeap)
 			})
-			heap.Fix(rss.newHeap, rss.newHeap.Len())
 		}
 
 		// 如果新堆占据了整个内存, 则将其转变为当前堆
@@ -118,6 +134,27 @@ func (rss *ReplacementSelectionSorter) Output(outputCh chan string, newRecord Fi
 	}
 }
 
+// 清空当前堆和新堆
 func (rss *ReplacementSelectionSorter) Flush(outputCh chan string) {
+	// 清空当前堆
+	for rss.currentHeap.Len() > 0 {
+		outputCh <- (*rss.currentHeap)[0].String()
+		heap.Pop(rss.currentHeap)
+	}
 
+	// 清空新堆
+	if rss.newHeap == nil || rss.newHeap.Len() <= 0 {
+		return
+	}
+
+	fp, _ := os.CreateTemp(RunLengthDir, "esort_*.rl")
+
+	rss.curHeapMtx.Lock()
+	rss.currentRunLength = fp
+	rss.curHeapMtx.Unlock()
+
+	for rss.newHeap.Len() > 0 {
+		outputCh <- (*rss.newHeap)[0].String()
+		heap.Pop(rss.newHeap)
+	}
 }
