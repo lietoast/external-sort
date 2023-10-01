@@ -37,28 +37,22 @@ func PreprocessingProcedure(file string, memorySize,
 		return err
 	}
 	// 建立初始堆
-	sorter, err := NewReplacementSelectionSorter(N, records)
-	if err != nil {
-		return err
-	}
+	sorter, output := NewReplacementSelectionSorter(N, records)
 
 	// 第二阶段: 输入/输出
 	var wg sync.WaitGroup
 	wg.Add(routineNum)
 
 	newRecords := make(chan FileRecord, 100)
-	output := make(chan string, 100)
 	flushSig := make(chan struct{}, 1)
 
 	go func() {
-		count := 0
 		defer wg.Done()
 		for {
 			record, err := readRecords(1, fp, recordSize, reader, readMethod, cvt)
 			if err != nil {
 				break
 			}
-			count++
 
 			newRecords <- record[0]
 		}
@@ -68,27 +62,33 @@ func PreprocessingProcedure(file string, memorySize,
 	go func() {
 		defer wg.Done()
 		for record := range newRecords {
-			sorter.Output(output, record)
+			sorter.Output(record)
 		}
 		flushSig <- struct{}{}
 	}()
 
 	go func() {
 		defer wg.Done()
+
+		tmpfile, _ := os.CreateTemp(RunLengthDir, "esort_*.rl")
+
 		for msg := range output {
-			sorter.curHeapMtx.Lock()
-			fmt.Fprintln(sorter.currentRunLength, msg)
-			sorter.curHeapMtx.Unlock()
+			if msg == "\n" {
+				tmpfile.Close()
+				tmpfile, _ = os.CreateTemp(RunLengthDir, "esort_*.rl")
+				continue
+			}
+
+			fmt.Fprintln(tmpfile, msg)
 		}
+
+		tmpfile.Close()
 	}()
 
 	<-flushSig
-	sorter.Flush(output)
-	close(output)
+	sorter.Flush()
 
 	wg.Wait()
-
-	sorter.currentRunLength.Close()
 
 	return nil
 }
