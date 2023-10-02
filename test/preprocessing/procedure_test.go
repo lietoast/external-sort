@@ -13,7 +13,7 @@ func TestPreprocessingProcedure(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := preprocessing.PreprocessingProcedure(
+		_, err := preprocessing.PreprocessingProcedure(
 			"./kvs",
 			1024,
 			16,

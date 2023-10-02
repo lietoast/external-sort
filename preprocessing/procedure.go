@@ -21,11 +21,11 @@ const (
 // 生成游程文件
 func PreprocessingProcedure(file string, memorySize,
 	recordSize uint64, reader FReader,
-	cvt Converter, readMethod int) error {
+	cvt Converter, readMethod int) ([]string, error) {
 
 	fp, err := os.OpenFile(file, os.O_RDONLY, 0644)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer fp.Close()
 
@@ -34,7 +34,7 @@ func PreprocessingProcedure(file string, memorySize,
 	// 一次性读取内存最多可以容纳的数量的记录
 	records, err := readRecords(N, fp, recordSize, reader, readMethod, cvt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// 建立初始堆
 	sorter, output := NewReplacementSelectionSorter(N, records)
@@ -67,15 +67,19 @@ func PreprocessingProcedure(file string, memorySize,
 		flushSig <- struct{}{}
 	}()
 
+	tmpfiles := make([]string, 0)
+
 	go func() {
 		defer wg.Done()
 
 		tmpfile, _ := os.CreateTemp(RunLengthDir, "esort_*.rl")
+		tmpfiles = append(tmpfiles, tmpfile.Name())
 
 		for msg := range output {
 			if msg == "\n" {
 				tmpfile.Close()
 				tmpfile, _ = os.CreateTemp(RunLengthDir, "esort_*.rl")
+				tmpfiles = append(tmpfiles, tmpfile.Name())
 				continue
 			}
 
@@ -90,7 +94,7 @@ func PreprocessingProcedure(file string, memorySize,
 
 	wg.Wait()
 
-	return nil
+	return tmpfiles, nil
 }
 
 func readRecords(N uint64, fp *os.File, recordSize uint64, reader FReader, readMethod int, cvt Converter) ([]FileRecord, error) {
