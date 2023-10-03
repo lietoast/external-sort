@@ -21,7 +21,7 @@ const (
 // 生成游程文件
 func PreprocessingProcedure(file string, memorySize,
 	recordSize uint64, reader FReader,
-	cvt Converter, readMethod int) ([]string, error) {
+	cvt Converter, readMethod int) (map[string]uint64, error) {
 
 	fp, err := os.OpenFile(file, os.O_RDONLY, 0644)
 	if err != nil {
@@ -67,23 +67,24 @@ func PreprocessingProcedure(file string, memorySize,
 		flushSig <- struct{}{}
 	}()
 
-	tmpfiles := make([]string, 0)
+	tmpfiles := make(map[string]uint64)
 
 	go func() {
 		defer wg.Done()
 
 		tmpfile, _ := os.CreateTemp(RunLengthDir, "esort_*.rl")
-		tmpfiles = append(tmpfiles, tmpfile.Name())
+		tmpfiles[tmpfile.Name()] = 0
 
 		for msg := range output {
 			if msg == "\n" {
 				tmpfile.Close()
 				tmpfile, _ = os.CreateTemp(RunLengthDir, "esort_*.rl")
-				tmpfiles = append(tmpfiles, tmpfile.Name())
+				tmpfiles[tmpfile.Name()] = 0
 				continue
 			}
 
 			fmt.Fprintln(tmpfile, msg)
+			tmpfiles[tmpfile.Name()] += 1
 		}
 
 		tmpfile.Close()
