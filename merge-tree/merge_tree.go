@@ -11,7 +11,7 @@ import (
 // 最佳合并树的结点
 type MergeTreeNode struct {
 	RunLength *os.File // 游程文件
-	LineNum   uint64   // 游程文件的行数
+	LineNum   uint64   // 游程文件的数据量
 }
 
 // 用于构建最佳合并树的优先队列

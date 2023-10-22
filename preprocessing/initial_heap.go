@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const RunLengthDir = "/Users/lietoast/RunLength" // 存放游程的目录
+const RunLengthDir = "/tmp/run_lengths" // 存放游程的目录
 
 // 可比较类型
 type Lesser interface {

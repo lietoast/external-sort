@@ -32,7 +32,7 @@ func (lt *LoserTree) Adjust(records []preprocessing.FileRecord, s int) {
 			break
 		}
 
-		if lt.nodes[t] == -1 || !records[s].Less(records[lt.nodes[t]]) {
+		if lt.nodes[t] == -1 || !less(records[s], records[lt.nodes[t]]) {
 			tmp = s
 			s = lt.nodes[t]
 			lt.nodes[t] = tmp
@@ -46,4 +46,16 @@ func (lt *LoserTree) Adjust(records []preprocessing.FileRecord, s int) {
 
 func (lt LoserTree) GetWinner() int {
 	return lt.nodes[0]
+}
+
+func less(x, y preprocessing.FileRecord) bool {
+	if x == nil && y == nil {
+		return true
+	} else if x == nil {
+		return false
+	} else if y == nil {
+		return true
+	}
+
+	return x.Less(y)
 }

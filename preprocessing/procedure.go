@@ -83,7 +83,7 @@ func PreprocessingProcedure(file string, memorySize,
 				continue
 			}
 
-			fmt.Fprintln(tmpfile, msg)
+			fmt.Fprint(tmpfile, msg)
 			tmpfiles[tmpfile.Name()] += 1
 		}
 
@@ -130,4 +130,13 @@ func readRecords(N uint64, fp *os.File, recordSize uint64, reader FReader, readM
 	}
 
 	return records, nil
+}
+
+// 读取文件一次
+func ReadOnce(file *os.File, reader FReader, cvt Converter, rs uint64, method int) (FileRecord, error) {
+	records, err := readRecords(1, file, rs, reader, method, cvt)
+	if err != nil {
+		return nil, err
+	}
+	return records[0], err
 }
